@@ -1,12 +1,12 @@
 # ELK 시스템 구축
 
-nginx 기반의 로깅 시스템 구축
+nginx 기반 로깅 시스템 구축
 
 0. ELK 구조
 1. 설치
    1. logstash
    2. ElasticSearch 설치
-   3. Kibans 설치
+   3. Kibana 설치
 2. logstash 파이프라인 생성
 3. 로깅내용 elasticsearch 전달
 4. kibana 
