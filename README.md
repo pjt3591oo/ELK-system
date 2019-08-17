@@ -2,6 +2,7 @@
 
 nginx 기반의 로깅 시스템 구축
 
+0. ELK 구조
 1. 설치
    1. logstash
    2. ElasticSearch 설치
@@ -10,6 +11,12 @@ nginx 기반의 로깅 시스템 구축
 3. 로깅내용 elasticsearch 전달
 4. kibana 
 5. 로그 발생기(node.js)
+
+## 0. ELK Architecture
+
+![](./document/imgs/ELK_struct.png)
+
+해당 가이드에서는 Filebeat을 사용하지 않고 logstash의 input {file} 기능을 활용.
 
 ## 1.  설치
 
@@ -164,7 +171,13 @@ output {
 
 input의 file 경로에서 path는 시스템마다 nginx 로그파일 위치가 다를수 있다. 해당 내용은 Mac Os 기준
 
+| 만약, input{file}아 아닌 Filebeat를 사용한다면 다음과 같이 input을 만들 수 있다.
 
+```
+input { beats { port => "5044" } }
+```
+
+5044를 listen하여 Filebeat한테 데이터를 입력받을 수 있다.
 
 * 실행
 
