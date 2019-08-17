@@ -299,5 +299,55 @@ $ vim app.js
 ```
 
 ```javascript
+const rp = require('request-promise');
 
+const options1 = {
+  method: 'GET',
+  uri: 'http://localhost/test/1',
+  json: true 
+};
+
+const options2 = {
+  method: 'GET',
+  uri: 'http://localhost',
+  json: true 
+};
+
+const options3 = {
+  method: 'GET',
+  uri: 'http://localhost/test',
+  json: true 
+};
+
+(async () => {
+  setInterval(async () => {
+    try {
+      const res1 = await rp(options1)
+    } catch (err) {
+  
+    }
+  
+    try {
+      const res2 = await rp(options2)
+      console.log(res2)
+    } catch (err) {
+  
+    }
+  
+    try {
+      const res3 = await rp(options3)
+    } catch (err) {
+  
+    }
+  }, 600)
+
+})()
 ```
+
+* client 실행
+
+```bash
+$ node app.js
+```
+
+logstash는 지속적으로 nginx의 access.log를 감시하여 필터링후 elasticsearch에게 전달하며 kibana를 통해 elasticsearch에 저장된 데이터를 분석할 수 있다.
