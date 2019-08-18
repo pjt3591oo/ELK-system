@@ -504,6 +504,8 @@ $ node ./client/send_logstash/app.js
 }
 ```
 
+---
+
 * python (./client/send_logstash/app.py)
 
 ```bash
