@@ -7,10 +7,13 @@ nginx 기반 로깅 시스템 구축
    1. logstash
    2. ElasticSearch 설치
    3. Kibana 설치
+   4. docker-compose
 2. logstash 파이프라인 생성
 3. 로깅내용 elasticsearch 전달
 4. kibana 
-5. 로그 발생기(node.js)
+5. 로그 발생기(node.js - nginx 접속)
+6. logstash input {tcp} 사용
+
 
 ## 0. ELK Architecture
 
@@ -55,7 +58,56 @@ elasticsearch는 도커를 활용하여 설치한다.
 $ docker run -d --name kibana --net somenetwork -p 5601:5601 kibana:7.3.0
 ```
 
+### 1.4. docker-compose
 
+매번 docker run을 이용하여 컨테이너를 생성하는 방법은 관리적인 측면에서 매우 불편합니다. docker-compose를 이용하면 효율적인 관리를 할 수 있습니다.
+
+* docker-compose.yaml
+
+```yaml
+version: '2.2'
+
+networks:
+  somenetwork:
+
+services:
+  elasticsearch:
+    container_name: elasticsearch
+    image: elasticsearch:7.3.0
+    environment:
+      - discovery.type=single-node
+    networks:
+      - somenetwork
+    ports:
+      - 9200:9200
+      - 9300:9300
+    stdin_open: true
+    tty: true
+
+  kibana:
+    container_name: kibana
+    image: kibana:7.3.0
+    networks:
+      - somenetwork
+    ports:
+      - 5601:5601
+    stdin_open: true
+    tty: true
+    depends_on:
+      - elasticsearch
+```
+
+* 컨테이너 생성 및 실행
+
+```bash
+$ docker-compose up
+
+$ docker-compose up -d # 데몬(background) 실행
+```
+
+```bash
+$ docker-compose down # 컨테이너 내리기
+```
 
 ## 2. logstash 파이프라인생성
 
@@ -157,9 +209,10 @@ input {
 } 
 
 filter { 
-    grok { 
-        match =>{"message" => "%{COMBINEDAPACHELOG}" } 
-    } 
+  grok { 
+      match =>{"message" => "%{COMBINEDAPACHELOG}" } 
+  } 
+  mutate { remove_field => [ "message"] }
 } 
 
 output {
@@ -167,9 +220,13 @@ output {
 }
 ```
 
-해당 패컨은 nginx의 access.log 파일을 받아서 분석하는 내용이다.
+해당 패턴은 nginx의 access.log 파일을 받아서 분석하는 내용이다.
 
 input의 file 경로에서 path는 시스템마다 nginx 로그파일 위치가 다를수 있다. 해당 내용은 Mac Os 기준
+
+`grok { }`는 특정 패턴에 따라 필터링한다. `COMBINEDAPACHELOG`는 아파치 로그 패턴에 맞춰서 필터링 한다는 의미
+
+filter의 `mutate { remove_filed }`는 필터링된 결과에서 특정 컬럼을 제거한다. message는 필터링 되기 전의 원문 데이터를 저장하고 있는데 이는 중복저장이기 때문에 지워도 무난하다.
 
 | 만약, input{file}아 아닌 Filebeat를 사용한다면 다음과 같이 input을 만들 수 있다.
 
@@ -229,10 +286,6 @@ filter {
         match =>{"message" => "%{COMBINEDAPACHELOG}" } 
     } 
 } 
-
-# output {
-#   stdout { codec => rubydebug }
-# }
 
 output { 
     elasticsearch { hosts => ["192.168.50.5:9200"] } 
@@ -300,11 +353,11 @@ http://localhost:5601로 접속
 
 강제로 localhost를 접속하여 로그를 발생합니다.
 
-* client 생성
+* client 생성(./client/webserver/app.js)
 
 ```bash
-$ mkdir client
-$ cd client
+$ mkdir client ; cd client
+$ mkdir webserver; cd client
 $ npm init
 $ npm install --save request
 $ npm install --save request-promise
@@ -364,3 +417,166 @@ $ node app.js
 ```
 
 logstash는 지속적으로 nginx의 access.log를 감시하여 필터링후 elasticsearch에게 전달하며 kibana를 통해 elasticsearch에 저장된 데이터를 분석할 수 있다.
+
+## 6. logstash input {tcp} 사용
+
+logstash는 파일뿐 아니라 tcp를 이용하여 데이터를 받을 수 있습니다.
+
+
+* pipeline 설정(pipeline_example3.conf)
+
+```
+input { 
+  tcp {
+    port => 12345
+    codec => json
+  } 
+} 
+
+output {
+  stdout {  }
+}
+```
+
+해당 가이드에서는 node.js, python에서 사용법을 알아봅니다.
+
+* node.js (./client/send_logstash/app.js)
+
+```bash
+$ npm install --save winston
+$ npm install --save winston-logstash
+```
+
+```javascript 
+const winston = require('winston');
+require('winston-logstash');
+ 
+const Logger = function Logger() {
+    this.logger = new (winston.Logger)({
+        transports: [
+            new (winston.transports.Logstash)({
+                port: 12345,
+                localhost: 'localhost',
+                level: 'debug'
+            })
+        ]
+    });
+ 
+    // Logs an info message
+    this.logInfo = function(message,  callback) {
+      const _this = this;
+      _this.logger.log('info', {message: message}, {stream: 'log'}, callback);
+    }
+
+    this.logDebug = function(message, callback) {
+      const _this = this;
+      _this.logger.debug('debug', {message: message}, {stream: 'debug'}, callback);
+    }
+
+};
+
+l = new Logger()
+
+l.logInfo('test-info')
+```
+
+* 실행
+
+```bash
+$ logstash -r -f pipeline_example3.conf
+```
+
+```bash
+$ node ./client/send_logstash/app.js
+```
+
+* 결과 
+
+```bash
+{
+    "@timestamp" => 2019-08-17T23:55:03.341Z,
+         "label" => "node",
+       "message" => "{ message: 'test-info' } { stream: 'log' }",
+      "@version" => "1",
+         "level" => "info",
+          "host" => "localhost",
+          "port" => 58237
+}
+```
+
+* python (./client/send_logstash/app.py)
+
+```bash
+$ pip install python-logstash
+$ pip3 install python-logstash
+```
+
+```python
+import logging
+import logstash
+import sys
+
+host = 'localhost'
+
+test_logger = logging.getLogger('python-logstash-logger')
+test_logger.setLevel(logging.INFO)
+# test_logger.addHandler(logstash.LogstashHandler(host, 12345, version=1))
+test_logger.addHandler(logstash.TCPLogstashHandler(host, 12345, version=1))
+
+# test_logger.error('python-logstash: test logstash error message.')
+# test_logger.info('python-logstash: test logstash info message.')
+# test_logger.warning('python-logstash: test logstash warning message.')
+
+# add extra field to logstash message
+extra = {
+    'test_string': 'python version: ' + repr(sys.version_info),
+    'test_boolean': True,
+    'test_dict': {'a': 1, 'b': 'c'},
+    'test_float': 1.23,
+    'test_integer': 123,
+    'test_list': [1, 2, '3'],
+}
+
+test_logger.info('python-logstash: test extra fields', extra=extra)
+```
+
+* 실행
+
+```bash
+$ logstash -r -f pipeline_example3.conf
+```
+
+```bash
+$ python3 ./client/send_logstash/app.py
+```
+
+* 결과 
+
+```bash
+{
+       "test_list" => [
+        [0] 1,
+        [1] 2,
+        [2] "3"
+    ],
+           "level" => "INFO",
+       "test_dict" => {
+        "a" => 1,
+        "b" => "c"
+    },
+            "port" => 64432,
+    "test_boolean" => true,
+      "test_float" => 1.23,
+        "@version" => "1",
+            "path" => "app.py",
+      "@timestamp" => 2019-08-18T00:12:54.974Z,
+            "tags" => [],
+      "stack_info" => nil,
+     "test_string" => "python version: sys.version_info(major=3, minor=7, micro=3, releaselevel='final', serial=0)",
+    "test_integer" => 123,
+         "message" => "python-logstash: test extra fields",
+            "type" => "logstash",
+     "logger_name" => "python-logstash-logger",
+            "host" => "bagjeongtaeui-MacBookPro.local"
+}
+```
