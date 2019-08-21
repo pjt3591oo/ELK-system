@@ -14,6 +14,12 @@ nginx 기반 로깅 시스템 구축
 5. 로그 발생기(node.js - nginx 접속)
 6. logstash input {tcp} 사용
 
+# 다양한 시스템 연동 및 개발
+
+1. [mongodb 연동](https://github.com/pjt3591oo/ELK-system/blob/master/document/mongodb.md)
+
+
+
 
 ## 0. ELK Architecture
 
@@ -348,7 +354,7 @@ http://localhost:5601로 접속
 
 ![](./document/imgs/kibana_discover.png)
 
- 
+
 ## 5. 로그 발생기
 
 강제로 localhost를 접속하여 로그를 발생합니다.
