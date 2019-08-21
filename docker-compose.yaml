@@ -29,4 +29,12 @@ services:
     depends_on:
       - elasticsearch
 
- 
+  mongo:
+    container_name: mongo
+    image: mongo
+    networks: 
+      - somenetwork
+    ports:
+      - 27017:27017
+    tty: true
+    stdin_open: true
