@@ -108,7 +108,7 @@ $ logstash-plugin install logstash-output-mongodb
 
 앞에서 생성한 mongodb를 전용툴로 접속 후 database, collection 생성후 해당 저장소에 데이터를 저장하는 클라이언트 코드 만드는 방법을 다룹니다.
 
-* mongoldb 접속
+* mongodb 접속
 
 ![](./imgs/mongodb_before_connection.png)
 
@@ -202,7 +202,7 @@ $ logstash -r -f pipeline_mongodb.conf
 
 ![](./imgs/logstash_mongodb_connection_success.png)
 
-실행을 하게되면 mongodb에 저장된 데이터를 읽어들입니다. 그리고 다시 시작하더라도 한번 읽어들인 데이터를 다시 input으로 받지 않습니다.
+logstash를 실행하면 mongodb에 저장된 데이터를 읽어들입니다. 그리고 다시 시작하더라도 한번 읽어들인 데이터를 다시 input으로 받지 않습니다.
 
 * Client 프로그램 실행
 
